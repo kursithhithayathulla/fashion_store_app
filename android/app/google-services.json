@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "982703391602",
+    "project_id": "aromas-fashion",
+    "storage_bucket": "aromas-fashion.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:982703391602:android:d825df4e796e1b672453eb",
+        "android_client_info": {
+          "package_name": "com.example.fashion_store_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA7dBFmMnQeD-mqLYnvI5us4oTglqQALs4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

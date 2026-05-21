@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400;1,700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-high": "#e8e8e8",
+                    "primary-container": "#d4af37",
+                    "primary-fixed": "#ffe088",
+                    "on-background": "#1a1c1c",
+                    "secondary-fixed": "#f0dfde",
+                    "error": "#ba1a1a",
+                    "on-surface": "#1a1c1c",
+                    "surface-container": "#eeeeee",
+                    "surface": "#f9f9f9",
+                    "surface-variant": "#e2e2e2",
+                    "error-container": "#ffdad6",
+                    "surface-dim": "#dadada",
+                    "on-error": "#ffffff",
+                    "primary-fixed-dim": "#e9c349",
+                    "tertiary": "#005bc0",
+                    "on-tertiary-fixed-variant": "#004493",
+                    "on-error-container": "#93000a",
+                    "on-secondary-container": "#6c6060",
+                    "background": "#f9f9f9",
+                    "surface-bright": "#f9f9f9",
+                    "on-primary-container": "#554300",
+                    "surface-container-highest": "#e2e2e2",
+                    "outline": "#7f7663",
+                    "on-tertiary-fixed-variant": "#004493",
+                    "on-primary-fixed": "#241a00",
+                    "on-tertiary": "#ffffff",
+                    "primary": "#735c00",
+                    "inverse-on-surface": "#f1f1f1",
+                    "secondary-container": "#eddcdb",
+                    "surface-container-low": "#f3f3f3",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-fixed-dim": "#adc7ff",
+                    "tertiary-fixed": "#d8e2ff",
+                    "tertiary-container": "#8db3ff",
+                    "on-tertiary-container": "#004390",
+                    "surface-tint": "#735c00",
+                    "on-secondary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "outline-variant": "#d0c5af",
+                    "inverse-surface": "#2f3131",
+                    "on-secondary-fixed-variant": "#4f4444",
+                    "secondary-fixed-dim": "#d3c3c2",
+                    "on-secondary-fixed": "#221919",
+                    "on-surface-variant": "#4d4635",
+                    "on-tertiary-fixed": "#001a41",
+                    "secondary": "#685b5b",
+                    "inverse-primary": "#e9c349"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Noto Serif"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .editorial-shadow { box-shadow: 0px 12px 32px rgba(26, 28, 28, 0.04); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- Top Navigation Shell -->
+<header class="bg-white/70 dark:bg-stone-900/70 backdrop-blur-md docked full-width top-0 sticky z-50 tonal-shift bg-surface-container-low dark:bg-stone-800/50 shadow-none flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-secondary dark:text-stone-300">search</span>
+<div class="h-6 w-[1px] bg-outline-variant/30"></div>
+<h1 class="font-noto-serif italic text-2xl tracking-tighter text-secondary dark:text-stone-200">Aromas Fashion</h1>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-secondary dark:text-stone-300">favorite</span>
+<span class="material-symbols-outlined text-secondary dark:text-stone-300">notifications</span>
+</div>
+</header>
+<main class="pb-24">
+<!-- Hero Search Section -->
+<section class="px-6 py-4">
+<div class="relative w-full">
+<input class="w-full bg-surface-container border-none rounded-full py-4 px-12 text-sm focus:ring-1 focus:ring-primary/30 font-body" placeholder="Search product..." type="text"/>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
+</div>
+</section>
+<!-- Flash Sale Banner -->
+<section class="px-6 mb-8">
+<div class="relative overflow-hidden rounded-[24px] bg-secondary aspect-[16/7] flex items-center p-8 editorial-shadow">
+<img alt="luxury fashion editorial" class="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-50" data-alt="high-fashion model wearing artisanal gold jewelry and silk garments in a sun-drenched minimalist studio setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlgMSjordBQuGghrD4MA8t2GdU42TqRuv9HuXaCqBSfq8uQXGhJ0iBMKbHRSfMloEhKQcjzyNytBNKe_t9P1wJcQWkpq-Vh4AU_cgnX8uIkAkz1N6p924IePi6CHyNFsxWqz4yEePynAyWGK6XPqnMvK4sFIWLAzv5BPnDQgzjoyf2uonRCEz_XQ0n94AXZ_jmb4ZISbtVXH-b4rGZ6yhUN5E5uwgO6Wdh700-wwkQ0ZvI1ajgXlP3rSvDCDWk3n6PyShUiDdzdQ"/>
+<div class="relative z-10 max-w-[60%]">
+<h2 class="font-headline text-3xl font-bold text-white mb-2 leading-tight">Flash Sale</h2>
+<p class="font-body text-white/80 text-sm mb-4">Up to 20% Off</p>
+<div class="flex gap-2">
+<div class="bg-white/10 backdrop-blur-md rounded-lg px-3 py-2 flex flex-col items-center min-w-[44px]">
+<span class="text-white font-bold text-lg leading-none">08</span>
+</div>
+<span class="text-white self-center">:</span>
+<div class="bg-white/10 backdrop-blur-md rounded-lg px-3 py-2 flex flex-col items-center min-w-[44px]">
+<span class="text-white font-bold text-lg leading-none">34</span>
+</div>
+<span class="text-white self-center">:</span>
+<div class="bg-white/10 backdrop-blur-md rounded-lg px-3 py-2 flex flex-col items-center min-w-[44px]">
+<span class="text-white font-bold text-lg leading-none">52</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Categories Horizontal Scroll -->
+<section class="mb-10">
+<div class="px-6 mb-4 flex justify-between items-center">
+<h3 class="font-label text-xs uppercase tracking-[0.15em] font-bold text-secondary">Categories</h3>
+<span class="text-primary font-bold text-sm">More Category</span>
+</div>
+<div class="flex overflow-x-auto gap-6 px-6 hide-scrollbar">
+<div class="flex flex-col items-center gap-3 min-w-[70px]">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">checkroom</span>
+</div>
+<span class="text-[11px] font-semibold text-center leading-tight">Man Shirt</span>
+</div>
+<div class="flex flex-col items-center gap-3 min-w-[70px]">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">flare</span>
+</div>
+<span class="text-[11px] font-semibold text-center leading-tight">Dress</span>
+</div>
+<div class="flex flex-col items-center gap-3 min-w-[70px]">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">handyman</span>
+</div>
+<span class="text-[11px] font-semibold text-center leading-tight">Man Work</span>
+</div>
+<div class="flex flex-col items-center gap-3 min-w-[70px]">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">shopping_bag</span>
+</div>
+<span class="text-[11px] font-semibold text-center leading-tight">Woman Bag</span>
+</div>
+<div class="flex flex-col items-center gap-3 min-w-[70px]">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">styler</span>
+</div>
+<span class="text-[11px] font-semibold text-center leading-tight">Woman T-Shirt</span>
+</div>
+</div>
+</section>
+<!-- Flash Sale Products -->
+<section class="mb-10">
+<div class="px-6 mb-6 flex justify-between items-center">
+<h3 class="font-label text-xs uppercase tracking-[0.15em] font-bold text-secondary">Flash Sale</h3>
+<span class="text-primary font-bold text-sm">See More</span>
+</div>
+<div class="flex gap-4 px-6 overflow-x-auto hide-scrollbar">
+<!-- Product Card 1 -->
+<div class="min-w-[160px] w-[160px]">
+<div class="bg-surface-container-low rounded-2xl p-3 mb-3 relative group overflow-hidden">
+<img alt="Men's Regular Fit T-Shirt" class="w-full aspect-square object-cover rounded-xl transition-transform duration-500 group-hover:scale-110" data-alt="close up of a high quality men's premium cotton t-shirt in cream color draped over a minimalist stone pedestal" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC62XOGrP-9EuZ8kWWR_C9W2_FS60emgOHasnNhR1jh-EdFUnTj08zi9aGgStnm7WsggQ8tQ33vxQzbdc8PRFFTjViA9JB4IKvKIe9Gn-g9oCtBnCP0MGWv6oR_9uwEd9WtJ_6qve8gOjaabgxh95CVLTFhwu9mzqkyN_ZYJSHTDM_TdrWZButjLU7-j8Fafc5UglVnLUP5DAPW6WIwhtweuw-aSn405aFbGmcTVhuckLVvvaWNZbLXEoMQ60sYQ_XNVsY3R3CwYw"/>
+<div class="absolute top-2 left-2 bg-primary-container text-on-primary-container text-[10px] font-bold px-2 py-1 rounded-md">24% Off</div>
+</div>
+<h4 class="font-body text-xs font-bold leading-tight mb-1 line-clamp-2">FS - Men's Regular Fit T-Shirt</h4>
+<p class="text-primary font-bold text-sm">$299.43</p>
+<p class="text-secondary/40 text-[10px] line-through">$394.00</p>
+</div>
+<!-- Product Card 2 -->
+<div class="min-w-[160px] w-[160px]">
+<div class="bg-surface-container-low rounded-2xl p-3 mb-3 relative group overflow-hidden">
+<img alt="Casual Jacket" class="w-full aspect-square object-cover rounded-xl transition-transform duration-500 group-hover:scale-110" data-alt="stylish men's unstructured linen jacket in charcoal grey hung on a designer wooden hanger against a soft beige wall" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzQnTwvL5qYws1eFRIwyw4U4TFK8fBY5XOW93_1rS7qjEGVpSdKRLvtxRyaQNUOET2N9s2FpKhGHZivQq8R5n6HwuoqAPYtou2mR3FRux5mJgH3D8hz25EMpPbmY04QBJLdEiCEChUwM8mhj3vN3i91cSSLF9Em1BoIMd5F6fhUT8-MaJylLTaU17CwavgWZ_v145_mIOCLJ4dquC1SS-fXqkZW-uVkBY4WIJZ0JjisbioeKCnxGw3CdKXCqWgsUVhLvxh650ftQ"/>
+<div class="absolute top-2 left-2 bg-primary-container text-on-primary-container text-[10px] font-bold px-2 py-1 rounded-md">24% Off</div>
+</div>
+<h4 class="font-body text-xs font-bold leading-tight mb-1 line-clamp-2">FS - Quilted Overcoat Series</h4>
+<p class="text-primary font-bold text-sm">$499.00</p>
+<p class="text-secondary/40 text-[10px] line-through">$650.00</p>
+</div>
+<!-- Product Card 3 -->
+<div class="min-w-[160px] w-[160px]">
+<div class="bg-surface-container-low rounded-2xl p-3 mb-3 relative group overflow-hidden">
+<img alt="Linen Shorts" class="w-full aspect-square object-cover rounded-xl transition-transform duration-500 group-hover:scale-110" data-alt="premium linen shorts in a warm tobacco brown color with sophisticated tailoring detail on a clean neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsKVGahLxCD9b1OdixZlITgB3S9YaPCaYkcPGyr1Id4tL4mMf60UipSH7U_r6XI5H4zmAlErq6f0wBaabY-zfhQ3iVAvI9WK1vVgB0kEt9C45XL38zCLo_zJYm6m3nB4t82wzVy_yc2mIscoEhpYWojsJXs_KI1G3OSO-YNkBYf0y0r4lJQEb7dhO5fGVqcep1mLSt0TleSsmxFn2cFEYaVKh7I-jPmcbZzw9UeVqIzWND0X2vvrULdwcFWm_-0g67Zex9R5qQ3A"/>
+<div class="absolute top-2 left-2 bg-primary-container text-on-primary-container text-[10px] font-bold px-2 py-1 rounded-md">24% Off</div>
+</div>
+<h4 class="font-body text-xs font-bold leading-tight mb-1 line-clamp-2">FS - Tailored Linen Shorts</h4>
+<p class="text-primary font-bold text-sm">$189.99</p>
+<p class="text-secondary/40 text-[10px] line-through">$250.00</p>
+</div>
+</div>
+</section>
+<!-- Recommended Full Width Banner -->
+<section class="px-6 mb-10">
+<div class="relative h-48 rounded-[24px] overflow-hidden">
+<img alt="Recommended Products" class="absolute inset-0 w-full h-full object-cover" data-alt="cinematic shot of a luxury boutique interior with soft ambient lighting and curated fashion collections on minimalist racks" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXL0k6HaXt4uDlN_931JkKI_R8jY0qLV2_inp4JremWRH0C6ZRyPQGoYFi4IJMDy6c5s3R0yvWuKXs5eDVUPCrWUq0diNsNDnZgcEzUd1wyeyOynPW7Ul-eou8asdfEUs8TG0tob5wf6Togghx3UBKjWDP8zzvn2bNzEzssysVFhvlnjAeYziFNURAT5stHsIHcDdaxzJ2aVC0wgdhNR5njJTaER6WPBTzPAEERxxJ71Po-wDRboxc2AmqPPMB2LvqIN8RTmmOKg"/>
+<div class="absolute inset-0 bg-gradient-to-r from-secondary/80 to-transparent flex flex-col justify-center p-8">
+<h3 class="font-headline text-2xl font-bold text-white mb-2 leading-tight">Recommended<br/>Product</h3>
+<p class="text-white/70 text-xs font-label tracking-widest">CURATED FOR YOU</p>
+</div>
+</div>
+</section>
+<!-- Mega Sale Section -->
+<section class="mb-10">
+<div class="px-6 mb-6 flex justify-between items-center">
+<h3 class="font-label text-xs uppercase tracking-[0.15em] font-bold text-secondary">Mega Sale</h3>
+<span class="text-primary font-bold text-sm">See More</span>
+</div>
+<div class="grid grid-cols-2 gap-4 px-6">
+<!-- Mega Item 1 -->
+<div class="bg-surface-container-lowest p-3 rounded-2xl editorial-shadow">
+<img alt="Nike Air Max" class="w-full aspect-square object-cover rounded-xl mb-3" data-alt="limited edition high-end sneakers with gold accents and premium leather materials presented in high-key fashion lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtUI41NAHIfMxOojkXF2f9W8tR3ou0uQwoQmr7ukJtgLDHGrOXx-boXo5Kus6tWXHqOMs1gKb8uH1qfX0itfVZ8ca1IfyC77IQGRUuizAkbznnTrMj-gx4vaAchJdaDAFmTfP4MiGa9wFQ51UZ0q89eoRVKKuLG306ibLJ1A-aZO6itnS8EEDve1UQdM3fJ5nmBkXH1YuojR1pBQ4tcX4cPB-4y3x_-uVZH7zK1B6_HDjgmO4Iz8aA2RGN18oEdgUpb_gLPIspZw"/>
+<h4 class="font-body text-xs font-bold leading-tight mb-1 line-clamp-2">MS - Nike Air Max 270 React</h4>
+<p class="text-primary font-bold text-sm">$299.43</p>
+<div class="flex items-center gap-1 mt-2">
+<span class="material-symbols-outlined text-[12px] text-primary-container" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[10px] text-secondary font-bold">4.8</span>
+</div>
+</div>
+<!-- Mega Item 2 -->
+<div class="bg-surface-container-lowest p-3 rounded-2xl editorial-shadow">
+<img alt="Premium Bag" class="w-full aspect-square object-cover rounded-xl mb-3" data-alt="handcrafted dark brown leather handbag with gold hardware placed on a polished marble surface with soft shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyPMdglKiCPLVGSkZVXKJtv3BaUuIj9mFERRMjhYNhwINI7iXW8eAw4O37LA0W49XFIBLI7DH7RKDu40PfpB7cFKnJfHUXuzFdFvspl2NR8tnwoJ5xZPTAM_wdLWksVnSA_FTJk4IRIZShJJsCEOporP4YKs7Y5I1Tk1uDyGffvZbmgYbIRoVE1Gu0ataxgzYJaHyi3_ncueuNog8nDvQVeN9-fln4_pifL-sgk6xAwNo4e3ACfmlJQ5H0ky1h7PPFH92pjdPWkg"/>
+<h4 class="font-body text-xs font-bold leading-tight mb-1 line-clamp-2">MS - Leather Messenger Bag</h4>
+<p class="text-primary font-bold text-sm">$534.33</p>
+<div class="flex items-center gap-1 mt-2">
+<span class="material-symbols-outlined text-[12px] text-primary-container" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[10px] text-secondary font-bold">4.9</span>
+</div>
+</div>
+</div>
+</section>
+<!-- More Items Product Grid -->
+<section class="px-6 mb-12">
+<h3 class="font-label text-xs uppercase tracking-[0.15em] font-bold text-secondary mb-6">More for You</h3>
+<div class="grid grid-cols-2 gap-x-4 gap-y-8">
+<!-- Item 1 -->
+<div>
+<div class="bg-surface-container-low aspect-[3/4] rounded-2xl overflow-hidden mb-3">
+<img alt="Summer Shirt" class="w-full h-full object-cover" data-alt="mens casual summer shirt with subtle botanical pattern in earth tones worn by a model in a Mediterranean villa setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJbYOyGv6k8URfDOl37NhcKC1BxUKiz29E-NbV1RnfTPt1qkizM3zFogNRZ51S84ku67vGFY3LSsyHF0jKB4K2IXARIadf21aKFH1o1AjN2H9k177305oFqS2MYIJrpBNCzuG9nhGveNb4vHbuiy4hOK9hBPOftcfh7QYyzXOJku3BXJgleOJRYATb09fRo3wyCX0NSkxFFpCyz89a3otlPTx_RO-V2_2vjqGa0zmZCiia_c94Zq2cUlPeMsRDQHlaUrSSUxrqpg"/>
+</div>
+<h4 class="font-body text-[13px] font-semibold mb-1 line-clamp-1">Classic Linen Shirt</h4>
+<div class="flex items-center justify-between">
+<span class="text-primary font-bold">$120.00</span>
+<span class="material-symbols-outlined text-secondary/40 text-lg">favorite</span>
+</div>
+</div>
+<!-- Item 2 -->
+<div>
+<div class="bg-surface-container-low aspect-[3/4] rounded-2xl overflow-hidden mb-3">
+<img alt="Silk Scarf" class="w-full h-full object-cover" data-alt="luxurious silk scarf with intricate geometric patterns in ochre and charcoal draped over an antique chair" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlX0q_E-QY4iSO_BfjrSToN8Xy3FxKSSAEoQM66h1kd091ynTW0iMlkzGuDn4XkDjhTXYFQflrQsqA5Wvs-7CYZlA5JJHnBWmUDk2rgcM0r_8pyWvDtXzVDUZgwv4grXtve_aQxWfpJQ53hqh8mZI3Q8cMHychQthHBsOjGUoopelpocS5hMpUMxW_n-r5R_a8GB5qJckDNHd3c9Udrdy7FGB6xi3krTfX8irXbYwJqhkHoT_WFVZrLG134Gtsz-hIeJv_yrqYLw"/>
+</div>
+<h4 class="font-body text-[13px] font-semibold mb-1 line-clamp-1">Patterned Silk Scarf</h4>
+<div class="flex items-center justify-between">
+<span class="text-primary font-bold">$85.00</span>
+<span class="material-symbols-outlined text-secondary/40 text-lg">favorite</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="bg-white/80 dark:bg-stone-950/80 backdrop-blur-xl docked full-width bottom-0 fixed rounded-t-[24px] border-t border-stone-100/10 dark:border-stone-800/20 shadow-[0px_-12px_32px_rgba(0,0,0,0.04)] fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pt-3 pb-safe transition-all duration-300 ease-out">
+<!-- Home (Active) -->
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-container font-bold scale-110" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-manrope text-[10px] uppercase tracking-[0.1em] mt-1">Home</span>
+</a>
+<!-- Explore -->
+<a class="flex flex-col items-center justify-center text-secondary/60 dark:text-stone-500 hover:text-primary dark:hover:text-primary-container transition-all" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="font-manrope text-[10px] uppercase tracking-[0.1em] mt-1">Explore</span>
+</a>
+<!-- Cart -->
+<a class="flex flex-col items-center justify-center text-secondary/60 dark:text-stone-500 hover:text-primary dark:hover:text-primary-container transition-all" href="#">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="font-manrope text-[10px] uppercase tracking-[0.1em] mt-1">Cart</span>
+</a>
+<!-- Offer -->
+<a class="flex flex-col items-center justify-center text-secondary/60 dark:text-stone-500 hover:text-primary dark:hover:text-primary-container transition-all" href="#">
+<span class="material-symbols-outlined">local_offer</span>
+<span class="font-manrope text-[10px] uppercase tracking-[0.1em] mt-1">Offer</span>
+</a>
+<!-- Account -->
+<a class="flex flex-col items-center justify-center text-secondary/60 dark:text-stone-500 hover:text-primary dark:hover:text-primary-container transition-all" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-manrope text-[10px] uppercase tracking-[0.1em] mt-1">Account</span>
+</a>
+</nav>
+</body></html>
