@@ -37,21 +37,13 @@ class ProductCard extends StatelessWidget {
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                child: product.imageUrl.startsWith('http://') || product.imageUrl.startsWith('https://')
-                    ? Image.network(
-                        ImageHelper.convertDriveUrl(product.imageUrl),
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        errorBuilder: (context, error, stackTrace) => 
-                            Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
-                      )
-                    : Image.asset(
-                        product.imageUrl,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        errorBuilder: (context, error, stackTrace) => 
-                            Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
-                      ),
+                child: Image.network(
+                    ImageHelper.convertDriveUrl(product.imageUrl),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    errorBuilder: (context, error, stackTrace) => 
+                        Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
+                  ),
               ),
             ),
             Padding(

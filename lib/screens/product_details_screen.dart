@@ -41,7 +41,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           errorBuilder: (context, error, stackTrace) =>
                               Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
                         )
-                      : Image.asset(
+                      : Image.network(
                           widget.product.imageUrl,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>

@@ -1,8 +1,8 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
@@ -16,6 +16,37 @@ import 'promo_codes_screen.dart';
 import 'settings_screen.dart';
 import '../utils/image_helper.dart';
 
+/// ============================================================
+/// ProfileScreen — Base64 Profile Image System (No Firebase Storage)
+/// ============================================================
+///
+/// HOW IT WORKS:
+///   1. User taps camera icon → image_picker opens the gallery
+///   2. Selected image is read as bytes (Uint8List)
+///   3. Bytes are encoded to a Base64 string via base64Encode()
+///   4. The Base64 string is stored in Firestore as a data URI:
+///      `data:image/jpeg;base64,<base64_string>`
+///   5. StreamBuilder listens to Firestore for real-time updates
+///   6. On display, the data URI is decoded back into bytes
+///   7. MemoryImage renders the bytes inside CircleAvatar
+///
+/// FIRESTORE STRUCTURE:
+///   users (collection)
+///     └── {uid} (document)
+///           ├── name: "John Doe"
+///           ├── email: "john@example.com"
+///           ├── profileType: "Men Profile"
+///           ├── photoUrl: "data:image/jpeg;base64,..."
+///           ├── profileImage: "data:image/jpeg;base64,..."
+///           └── createdAt: Timestamp
+///
+/// IMPORTANT NOTES:
+///   • Firestore document limit is 1 MB — images are compressed
+///     to 512x512 with 75% quality to stay well under this limit
+///   • Both photoUrl and profileImage fields are kept in sync
+///   • No Firebase Storage dependency required
+/// ============================================================
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -24,10 +55,39 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  // ── State Variables ──────────────────────────────────────────
   bool _isUploadingProfileImage = false;
 
+  // ── Lifecycle ────────────────────────────────────────────────
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  // ── STEP 1: Decode Base64 string back into an ImageProvider ──
+  /// Takes a stored path/URL and returns an ImageProvider.
+  /// Handles three cases:
+  ///   • data:image URI → decode Base64 → MemoryImage
+  ///   • Local file path  → FileImage (mobile only)
+  ///   • HTTP(S) URL      → NetworkImage
   ImageProvider? _getProfileImageProvider(String path) {
     if (path.isEmpty) return null;
+
+    // CASE 1: Base64 data URI (our primary method)
+    if (path.startsWith('data:image/')) {
+      try {
+        // Split "data:image/jpeg;base64,<actual_base64>" to get the data part
+        final base64String = path.split(',').last;
+        final bytes = base64Decode(base64String);
+        return MemoryImage(bytes);
+      } catch (e) {
+        debugPrint('❌ Error decoding base64 image: $e');
+        return null;
+      }
+    }
+
+    // CASE 2: Local file path (fallback for older data)
     if (!kIsWeb) {
       if (!path.startsWith('http://') && !path.startsWith('https://')) {
         final file = File(path);
@@ -38,122 +98,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     }
+
+    // CASE 3: Network URL (fallback for older data)
     return NetworkImage(ImageHelper.convertDriveUrl(path));
   }
 
+  // ── Helper: Should show placeholder icon? ────────────────────
   bool _shouldShowPlaceholder(Uint8List? pickedBytes, String path) {
     if (pickedBytes != null) return false;
     if (path.isEmpty) return true;
-    if (!kIsWeb && !path.startsWith('http://') && !path.startsWith('https://')) {
+    if (path.startsWith('data:image/')) return false;
+    if (!kIsWeb &&
+        !path.startsWith('http://') &&
+        !path.startsWith('https://')) {
       return !File(path).existsSync();
     }
     return false;
   }
 
-  Future<String> _uploadImageToStorage(String userId, dynamic fileOrBytes) async {
-    final defaultBucket = FirebaseStorage.instance.app.options.storageBucket ?? '';
-    final isDefaultAppspot = defaultBucket.contains('.appspot.com');
-    final fallbackBucket = isDefaultAppspot 
-        ? defaultBucket.replaceAll('.appspot.com', '.firebasestorage.app')
-        : defaultBucket.replaceAll('.firebasestorage.app', '.appspot.com');
-
-    // Try primary bucket
-    try {
-      return await _performUpload(FirebaseStorage.instance, userId, fileOrBytes);
-    } on FirebaseException catch (e) {
-      if (e.code == 'object-not-found' && fallbackBucket.isNotEmpty && fallbackBucket != defaultBucket) {
-        debugPrint('Upload failed with object-not-found. Retrying with fallback bucket: $fallbackBucket');
-        try {
-          final fallbackStorage = FirebaseStorage.instanceFor(
-            app: FirebaseStorage.instance.app,
-            bucket: fallbackBucket,
-          );
-          return await _performUpload(fallbackStorage, userId, fileOrBytes);
-        } on FirebaseException catch (fallbackErr) {
-          if (fallbackErr.code == 'object-not-found') {
-            throw FirebaseException(
-              plugin: 'firebase_storage',
-              code: 'object-not-found',
-              message: 'Storage bucket not found. Please ensure Firebase Storage is enabled in your Firebase Console and the bucket name in firebase_options.dart is correct.',
-            );
-          }
-          rethrow;
-        }
-      }
-      rethrow;
-    }
-  }
-
-  Future<String> _performUpload(FirebaseStorage storage, String userId, dynamic fileOrBytes) async {
-    final ref = storage.ref().child('profile_images').child('$userId.jpg');
-    TaskSnapshot snapshot;
-    if (fileOrBytes is Uint8List) {
-      snapshot = await ref.putData(
-        fileOrBytes,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-    } else if (fileOrBytes is File) {
-      snapshot = await ref.putFile(fileOrBytes);
-    } else {
-      throw ArgumentError('Unsupported file type');
-    }
-    return await snapshot.ref.getDownloadURL();
-  }
-
+  // ── STEP 2: Pick image, encode to Base64, store in Firestore ──
+  /// This is the main upload flow:
+  ///   1. Open gallery with image_picker
+  ///   2. Read image bytes
+  ///   3. Encode to Base64 string
+  ///   4. Save to Firestore (no Firebase Storage needed!)
   Future<void> _uploadProfileImage(BuildContext context, String userId) async {
     if (userId.isEmpty) return;
 
     final picker = ImagePicker();
     try {
+      // ── Pick image from gallery ──
       final pickedFile = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 85,
+        maxWidth: 512,       // Compress width to reduce Base64 size
+        maxHeight: 512,      // Compress height to reduce Base64 size
+        imageQuality: 75,    // 75% quality keeps good visuals, small size
       );
 
-      if (pickedFile == null) return; // User cancelled
+      if (pickedFile == null) return; // User cancelled the picker
 
+      // ── Show loading indicator ──
       setState(() {
         _isUploadingProfileImage = true;
       });
 
-      final String downloadUrl;
-      if (kIsWeb) {
-        final bytes = await pickedFile.readAsBytes();
-        downloadUrl = await _uploadImageToStorage(userId, bytes);
-      } else {
-        final file = File(pickedFile.path);
-        downloadUrl = await _uploadImageToStorage(userId, file);
-      }
+      // ── Read image as bytes (Uint8List) ──
+      final rawBytes = await pickedFile.readAsBytes();
 
-      debugPrint('Uploaded to Firebase Storage, URL: $downloadUrl');
+      // ── Compress and resize image bytes to keep them under Firestore limit ──
+      final bytes = await ImageHelper.resizeAndCompressImage(rawBytes, maxDimension: 256);
 
-      await FirestoreService().updateUserProfileImage(userId, downloadUrl);
+      // ── Encode bytes to Base64 string ──
+      final base64String = base64Encode(bytes);
 
+      // ── Create data URI (stores MIME type + Base64 together) ──
+      final dataUri = 'data:image/jpeg;base64,$base64String';
+
+      // ── Save to Firestore ──
+      // This stores the entire image as a string in the user's document
+      await FirestoreService().updateUserProfileImage(userId, dataUri);
+
+      // ── Show success message ──
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile image updated successfully!'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text('Profile image updated successfully!'),
+            ],
+          ),
+          backgroundColor: Colors.green.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(16),
         ),
       );
     } catch (e) {
-      debugPrint('Update failed: $e');
+      // ── Error handling ──
+      debugPrint('❌ Profile image upload failed: $e');
       if (!context.mounted) return;
-      
-      String message = e.toString();
-      if (e is FirebaseException && e.message != null) {
-        message = e.message!;
+
+      String errorMessage = 'Failed to update image.';
+      if (e.toString().contains('permission')) {
+        errorMessage = 'Gallery permission denied. Please allow access.';
+      } else if (e.toString().contains('too-large') ||
+          e.toString().contains('RESOURCE_EXHAUSTED')) {
+        errorMessage = 'Image is too large. Try a smaller image.';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to update image: $message'),
-          backgroundColor: Colors.red,
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text(errorMessage)),
+            ],
+          ),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(16),
         ),
       );
     } finally {
+      // ── Always hide loading indicator ──
       if (mounted) {
         setState(() {
           _isUploadingProfileImage = false;
@@ -162,7 +215,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _showEditProfileDialog(BuildContext context, String currentName, String currentProfileType, String currentPhotoUrl) {
+  // ── Edit Profile Dialog ──────────────────────────────────────
+  void _showEditProfileDialog(
+    BuildContext context,
+    String currentName,
+    String currentProfileType,
+    String currentPhotoUrl,
+  ) {
     final nameController = TextEditingController(text: currentName);
     final photoUrlController = TextEditingController(text: currentPhotoUrl);
     String selectedType = currentProfileType;
@@ -174,130 +233,213 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Edit Profile'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        CircleAvatar(
-                          radius: 40,
+        return StatefulBuilder(builder: (context, setState) {
+          return AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Icon(Icons.edit, color: AppTheme.accentColor, size: 22),
+                const SizedBox(width: 8),
+                const Text('Edit Profile'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── Profile image picker inside dialog ──
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppTheme.accentColor.withValues(alpha: 0.5),
+                            width: 3,
+                          ),
+                        ),
+                        child: CircleAvatar(
+                          radius: 45,
                           backgroundColor: Colors.grey[200],
                           backgroundImage: pickedImageBytes != null
                               ? MemoryImage(pickedImageBytes!) as ImageProvider
-                              : _getProfileImageProvider(photoUrlController.text),
-                          onBackgroundImageError: (pickedImageBytes != null || photoUrlController.text.isNotEmpty)
+                              : _getProfileImageProvider(
+                                  photoUrlController.text),
+                          onBackgroundImageError: (pickedImageBytes != null ||
+                                  photoUrlController.text.isNotEmpty)
                               ? (e, s) {}
                               : null,
-                          child: _shouldShowPlaceholder(pickedImageBytes, photoUrlController.text)
-                              ? const Icon(Icons.person, size: 40, color: Colors.grey)
+                          child: _shouldShowPlaceholder(
+                                  pickedImageBytes, photoUrlController.text)
+                              ? const Icon(Icons.person,
+                                  size: 45, color: Colors.grey)
                               : null,
                         ),
-                        if (isUploading) const CircularProgressIndicator(),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: InkWell(
-                            onTap: isUploading ? null : () async {
-                              final picker = ImagePicker();
-                              final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-                              if (pickedFile != null) {
-                                final bytes = await pickedFile.readAsBytes();
-                                setState(() {
-                                  pickedImageBytes = bytes;
-                                });
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                      ),
+                      if (isUploading)
+                        const CircularProgressIndicator(
+                            color: AppTheme.accentColor),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: InkWell(
+                          onTap: isUploading
+                              ? null
+                              : () async {
+                                  final picker = ImagePicker();
+                                  final pickedFile = await picker.pickImage(
+                                    source: ImageSource.gallery,
+                                    maxWidth: 512,
+                                    maxHeight: 512,
+                                    imageQuality: 75,
+                                  );
+                                  if (pickedFile != null) {
+                                    final rawBytes = await pickedFile.readAsBytes();
+                                    final bytes = await ImageHelper.resizeAndCompressImage(rawBytes, maxDimension: 256);
+                                    setState(() {
+                                      pickedImageBytes = bytes;
+                                    });
+                                  }
+                                },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
                             ),
+                            child: const Icon(Icons.camera_alt,
+                                color: Colors.white, size: 16),
                           ),
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: nameController,
+                    enabled: !isUploading,
+                    decoration: InputDecoration(
+                      labelText: 'Name',
+                      prefixIcon: const Icon(Icons.person_outline),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: nameController,
-                      enabled: !isUploading,
-                      decoration: const InputDecoration(labelText: 'Name'),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: [
+                      'Men Profile',
+                      'Women Profile',
+                      'Unisex Profile'
+                    ].contains(selectedType)
+                        ? selectedType
+                        : 'Men Profile',
+                    decoration: InputDecoration(
+                      labelText: 'Profile Type',
+                      prefixIcon: const Icon(Icons.style_outlined),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: ['Men Profile', 'Women Profile', 'Unisex Profile'].contains(selectedType) ? selectedType : 'Men Profile',
-                      decoration: const InputDecoration(labelText: 'Profile Type'),
-                      items: ['Men Profile', 'Women Profile', 'Unisex Profile'].map((type) {
-                        return DropdownMenuItem(value: type, child: Text(type));
-                      }).toList(),
-                      onChanged: isUploading ? null : (val) {
-                        if (val != null) setState(() => selectedType = val);
-                      },
-                    ),
-                  ],
-                ),
+                    items: ['Men Profile', 'Women Profile', 'Unisex Profile']
+                        .map((type) {
+                      return DropdownMenuItem(value: type, child: Text(type));
+                    }).toList(),
+                    onChanged: isUploading
+                        ? null
+                        : (val) {
+                            if (val != null) {
+                              setState(() => selectedType = val);
+                            }
+                          },
+                  ),
+                ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: isUploading ? null : () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: isUploading ? null : () async {
-                    if (userId != null) {
-                      setState(() {
-                        isUploading = true;
-                      });
-                      
-                      String finalPhotoUrl = photoUrlController.text.trim();
-                      try {
-                        if (pickedImageBytes != null) {
-                          // Upload to Firebase Storage using bytes (works on both web and mobile)
-                          finalPhotoUrl = await _uploadImageToStorage(userId, pickedImageBytes!);
-                          debugPrint('Uploaded to Firebase Storage, URL: $finalPhotoUrl');
-                        }
+            ),
+            actions: [
+              TextButton(
+                onPressed: isUploading ? null : () => Navigator.pop(context),
+                child:
+                    Text('Cancel', style: TextStyle(color: AppTheme.secondaryText)),
+              ),
+              ElevatedButton(
+                onPressed: isUploading
+                    ? null
+                    : () async {
+                        if (userId != null) {
+                          setState(() {
+                            isUploading = true;
+                          });
 
-                        await FirestoreService().updateUserProfile(userId, {
-                          'name': nameController.text.trim(),
-                          'profileType': selectedType,
-                          'photoUrl': finalPhotoUrl,
-                          'profileImage': finalPhotoUrl, // Keeps both synchronized in Firestore
-                        });
-                        
-                        if (context.mounted) {
-                          Navigator.pop(context);
+                          String finalPhotoUrl =
+                              photoUrlController.text.trim();
+                          try {
+                            // Encode picked image bytes to Base64
+                            if (pickedImageBytes != null) {
+                              final base64String =
+                                  base64Encode(pickedImageBytes!);
+                              finalPhotoUrl =
+                                  'data:image/jpeg;base64,$base64String';
+                            }
+
+                            final bool isBase64 = finalPhotoUrl.startsWith('data:image/');
+                            await FirestoreService()
+                                .updateUserProfile(userId, {
+                              'name': nameController.text.trim(),
+                              'profileType': selectedType,
+                              'photoUrl': isBase64 ? '' : finalPhotoUrl,
+                              'profileImage': finalPhotoUrl,
+                            });
+
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          } catch (e) {
+                            setState(() {
+                              isUploading = false;
+                            });
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content:
+                                      Text('Error updating profile: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        } else {
+                          if (context.mounted) Navigator.pop(context);
                         }
-                      } catch (e) {
-                        setState(() {
-                          isUploading = false;
-                        });
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error updating profile: $e')),
-                          );
-                        }
-                      }
-                    } else {
-                      if (context.mounted) Navigator.pop(context);
-                    }
-                  },
-                  child: const Text('Save'),
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
-              ],
-            );
-          }
-        );
+                child: isUploading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Save'),
+              ),
+            ],
+          );
+        });
       },
     );
   }
+
+  // ── Build ────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     if (!AuthService.isLoggedIn) {
@@ -305,6 +447,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     return _buildProfileView(context);
   }
+
+  // ── Guest View (Not Logged In) ──────────────────────────────
 
   Widget _buildGuestView(BuildContext context) {
     return Scaffold(
@@ -321,7 +465,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 decoration: BoxDecoration(
                   color: AppTheme.backgroundColor,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Theme.of(context).dividerColor, width: 2),
+                  border: Border.all(
+                      color: Theme.of(context).dividerColor, width: 2),
                 ),
                 child: Icon(
                   Icons.person_outline,
@@ -392,272 +537,513 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ── Logged In Profile View ──────────────────────────────────
+
   Widget _buildProfileView(BuildContext context) {
     final userId = AuthService.currentUser?.uid ?? '';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {},
-          ),
-        ],
-      ),
       body: StreamBuilder<Map<String, dynamic>>(
+        // STEP 5: Real-time Firestore stream — any change to the user
+        // document (including profileImage) triggers a rebuild instantly
         stream: FirestoreService().getUserProfileStream(userId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: AppTheme.accentColor),
+            );
           }
 
           if (snapshot.hasError) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Error loading profile: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        size: 48, color: AppTheme.errorColor),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error loading profile',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${snapshot.error}',
+                      style: const TextStyle(color: Colors.red),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
             );
           }
 
           final userData = snapshot.data ?? {};
-          final name = userData['name'] ?? AuthService.currentUser?.displayName ?? 'User';
+          final name = userData['name'] ?? 'User';
           final email = userData['email'] ?? AuthService.currentUser?.email ?? 'user@example.com';
-          final profileType = userData['profileType'] ?? 'Men Profile';
-          final photoUrl = userData['photoUrl'] ?? '';
+          final profileType = userData['profileType'] ?? 'Standard Member';
+          final String photoUrl = userData['profileImage'] ?? userData['photoUrl'] ?? '';
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey[300],
-                      backgroundImage: _getProfileImageProvider(photoUrl),
-                      onBackgroundImageError: photoUrl.isNotEmpty ? (e, s) {} : null,
-                      child: _shouldShowPlaceholder(null, photoUrl)
-                          ? const Icon(Icons.person, size: 60, color: Colors.white)
-                          : null,
-                    ),
-                    if (_isUploadingProfileImage)
-                      Positioned.fill(
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            color: Colors.black38,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: CircularProgressIndicator(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: GestureDetector(
-                        onTap: _isUploadingProfileImage ? null : () => _uploadProfileImage(context, userId),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.accentColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2),
-                          ),
-                          child: const Icon(
-                            Icons.camera_alt,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      name,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit, size: 20, color: Colors.grey),
-                      onPressed: () => _showEditProfileDialog(context, name, profileType, photoUrl),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  email,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryText.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    profileType,
-                    style: TextStyle(
-                      color: AppTheme.primaryText,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                _buildProfileOption(
-                  context,
-                  Icons.shopping_bag_outlined,
-                  'My Orders',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => OrdersScreen(userId: userId),
-                      ),
-                    );
-                  },
-                ),
-                _buildProfileOption(
-                  context,
-                  Icons.favorite_border,
-                  'Wishlist',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const WishlistScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildProfileOption(
-                  context,
-                  Icons.location_on_outlined,
-                  'Shipping Addresses',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ShippingAddressesScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildProfileOption(
-                  context,
-                  Icons.payment_outlined,
-                  'Payment Methods',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const PaymentMethodsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildProfileOption(
-                  context,
-                  Icons.local_offer_outlined,
-                  'Promo Codes',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const PromoCodesScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildProfileOption(
-                  context,
-                  Icons.settings_outlined,
-                  'Settings',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SettingsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
+          return CustomScrollView(
+            slivers: [
+              // ── Modern Solid Header (No Gradient) ──
+              SliverToBoxAdapter(
+                child: Container(
                   width: double.infinity,
-                  child: TextButton.icon(
-                    onPressed: () {
-                      AuthService.logout();
-                      setState(() {});
-                    },
-                    icon: const Icon(Icons.logout, color: AppTheme.errorColor),
-                    label: const Text(
-                      'Log Out',
-                      style: TextStyle(color: AppTheme.errorColor, fontSize: 16),
-                    ),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: const BorderSide(color: AppTheme.errorColor),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                      child: Column(
+                        children: [
+                          // ── Top bar ──
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'My Profile',
+                                style: TextStyle(
+                                  color: AppTheme.primaryText,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: Icon(Icons.edit_outlined,
+                                        color: AppTheme.secondaryText),
+                                    onPressed: () =>
+                                        _showEditProfileDialog(
+                                      context,
+                                      name,
+                                      profileType,
+                                      photoUrl,
+                                    ),
+                                    tooltip: 'Edit Profile',
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                        Icons.settings_outlined,
+                                        color: AppTheme.secondaryText),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const SettingsScreen(),
+                                        ),
+                                      );
+                                    },
+                                    tooltip: 'Settings',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          // ── Display Base64 image in CircleAvatar ──
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Outer glow ring
+                              Container(
+                                width: 120,
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: AppTheme.accentColor
+                                        .withValues(alpha: 0.6),
+                                    width: 3,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppTheme.accentColor
+                                          .withValues(alpha: 0.1),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: CircleAvatar(
+                                  radius: 55,
+                                  backgroundColor: AppTheme.backgroundColor,
+                                  backgroundImage:
+                                      _getProfileImageProvider(photoUrl),
+                                  onBackgroundImageError:
+                                      photoUrl.isNotEmpty
+                                          ? (e, s) {}
+                                          : null,
+                                  child: _shouldShowPlaceholder(
+                                          null, photoUrl)
+                                      ? Icon(Icons.person,
+                                          size: 60, color: AppTheme.secondaryText)
+                                      : null,
+                                ),
+                              ),
+
+                              // ── Loading overlay while uploading ──
+                              if (_isUploadingProfileImage)
+                                Container(
+                                  width: 120,
+                                  height: 120,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black45,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: AppTheme.accentColor,
+                                      strokeWidth: 3,
+                                    ),
+                                  ),
+                                ),
+
+                              // ── Camera button ──
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: GestureDetector(
+                                  onTap: _isUploadingProfileImage
+                                      ? null
+                                      : () => _uploadProfileImage(
+                                          context, userId),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.accentColor,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                          color: AppTheme.cardColor, width: 2.5),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black
+                                              .withValues(alpha: 0.15),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+
+                          // ── User name ──
+                          Text(
+                            name,
+                            style: TextStyle(
+                              color: AppTheme.primaryText,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+
+                          // ── User email ──
+                          Text(
+                            email,
+                            style: TextStyle(
+                              color: AppTheme.secondaryText,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // ── Profile type badge ──
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentColor.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: AppTheme.accentColor.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: Text(
+                              profileType,
+                              style: TextStyle(
+                                color: AppTheme.accentColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+
+              // ── Menu Items ──
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    // Section label
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 12),
+                      child: Text(
+                        'MY ACCOUNT',
+                        style: TextStyle(
+                          color: AppTheme.secondaryText,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ),
+                    _buildProfileOption(
+                      context,
+                      Icons.shopping_bag_outlined,
+                      'My Orders',
+                      subtitle: 'Track & manage your orders',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                OrdersScreen(userId: userId),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildProfileOption(
+                      context,
+                      Icons.favorite_border,
+                      'Wishlist',
+                      subtitle: 'Items you love',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const WishlistScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildProfileOption(
+                      context,
+                      Icons.location_on_outlined,
+                      'Shipping Addresses',
+                      subtitle: 'Manage delivery addresses',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const ShippingAddressesScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildProfileOption(
+                      context,
+                      Icons.payment_outlined,
+                      'Payment Methods',
+                      subtitle: 'Saved cards & payment options',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const PaymentMethodsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildProfileOption(
+                      context,
+                      Icons.local_offer_outlined,
+                      'Promo Codes',
+                      subtitle: 'Available discounts & coupons',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const PromoCodesScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildProfileOption(
+                      context,
+                      Icons.settings_outlined,
+                      'Settings',
+                      subtitle: 'App preferences & theme',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SettingsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    // ── Logout Button ──
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                              title: const Text('Log Out'),
+                              content: const Text(
+                                  'Are you sure you want to log out?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    AuthService.logout();
+                                    setState(() {});
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.errorColor,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text('Log Out'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.logout,
+                            color: AppTheme.errorColor),
+                        label: const Text(
+                          'Log Out',
+                          style: TextStyle(
+                              color: AppTheme.errorColor, fontSize: 16),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side:
+                                const BorderSide(color: AppTheme.errorColor),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                  ]),
+                ),
+              ),
+            ],
           );
-        }
+        },
       ),
     );
   }
 
+  // ── Profile Menu Option Widget ──────────────────────────────
+
   Widget _buildProfileOption(
     BuildContext context,
     IconData icon,
-    String title,
-    {VoidCallback? onTap}
-  ) {
+    String title, {
+    String? subtitle,
+    VoidCallback? onTap,
+  }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: AppTheme.isDarkMode ? 0.2 : 0.02),
-            blurRadius: 5,
+            color: Colors.black
+                .withValues(alpha: AppTheme.isDarkMode ? 0.2 : 0.04),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: ListTile(
-        leading: Icon(icon, color: AppTheme.primaryText),
-        title: Text(
-          title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontSize: 16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap ?? () {},
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: AppTheme.accentColor, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontSize: 15),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: AppTheme.secondaryText,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: AppTheme.secondaryText,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
         ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: AppTheme.secondaryText,
-        ),
-        onTap: onTap ?? () {},
       ),
     );
   }
