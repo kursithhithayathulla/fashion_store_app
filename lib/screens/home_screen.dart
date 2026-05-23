@@ -189,57 +189,61 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 24),
 
                     // ── Promo Banner ────────────────────────────────────────
-                    Container(
-                      width: double.infinity,
-                      height: 160,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        image: const DecorationImage(
-                          image: NetworkImage('https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200&auto=format&fit=crop&q=80'),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.black.withValues(alpha: 0.6),
-                              Colors.transparent,
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                        ),
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              'New Collection',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Up to 50% off',
-                              style: TextStyle(
-                                color: AppTheme.accentColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
+Container(
+  width: double.infinity,
+  height: 160,
+  decoration: BoxDecoration(
+    borderRadius: BorderRadius.circular(16),
+    image: const DecorationImage(
+      image: NetworkImage(
+        'https://res.cloudinary.com/dvqbzsh71/image/upload/v1779264122/banner_mcdfzc.jpg',
+      ),
+      fit: BoxFit.cover,
+    ),
+  ),
+  child: Container(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(16),
+      gradient: LinearGradient(
+        colors: [
+          Colors.black.withValues(alpha: 0.6),
+          Colors.transparent,
+        ],
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+      ),
+    ),
+    padding: const EdgeInsets.all(20),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text(
+          'New Collection',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
 
+        const SizedBox(height: 8),
+        
+        Text(
+          'Up to 50% off',
+          style: TextStyle(
+            color: AppTheme.accentColor,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    ),
+  ),
+),
+
+const SizedBox(height: 32),
+        ], 
                   // ── Featured / Results header ────────────────────────────
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

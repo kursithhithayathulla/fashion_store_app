@@ -38,12 +38,34 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       ? Image.network(
                           ImageHelper.convertDriveUrl(widget.product.imageUrl),
                           fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                color: AppTheme.accentColor,
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            );
+                          },
                           errorBuilder: (context, error, stackTrace) =>
                               Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
                         )
                       : Image.network(
                           widget.product.imageUrl,
                           fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                color: AppTheme.accentColor,
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            );
+                          },
                           errorBuilder: (context, error, stackTrace) =>
                               Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
                         ),

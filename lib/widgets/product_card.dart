@@ -41,8 +41,23 @@ class ProductCard extends StatelessWidget {
                     ImageHelper.convertDriveUrl(product.imageUrl),
                     fit: BoxFit.cover,
                     width: double.infinity,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        color: Colors.grey[100],
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: Theme.of(context).colorScheme.primary,
+                            strokeWidth: 2,
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        ),
+                      );
+                    },
                     errorBuilder: (context, error, stackTrace) => 
-                        Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
+                        Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported, color: Colors.grey)),
                   ),
               ),
             ),
