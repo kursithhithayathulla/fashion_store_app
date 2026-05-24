@@ -472,101 +472,56 @@ class FirestoreService {
     await _db.collection('users').doc(userId).delete();
   }
 
-  Future<void> seedDefaultProducts() async {
-    final defaultProducts = [
-      {
-        'id': 'men_shirt',
-        'name': 'Classic White Linen Shirt',
-        'description': 'A premium, lightweight, and highly breathable white linen shirt, designed for a relaxed and sophisticated summer look.',
-        'price': 89.99,
-        'imageUrl': '',
-        'category': 'Men',
-        'sizes': ['S', 'M', 'L', 'XL'],
-      },
-      {
-        'id': 'casual_jacket',
-        'name': 'Casual Bomber Jacket',
-        'description': 'A versatile and stylish bomber jacket tailored for a modern fit, featuring premium hardware and comfortable ribbed cuffs.',
-        'price': 149.99,
-        'imageUrl': '',
-        'category': 'Men',
-        'sizes': ['M', 'L', 'XL'],
-      },
-      {
-        'id': 'linen_trousers',
-        'name': 'Linen Drawstring Trousers',
-        'description': 'Tailored from lightweight linen blend, these trousers feature an elastic waistband and drawstring for ultimate comfort and refined look.',
-        'price': 110.00,
-        'imageUrl': '',
-        'category': 'Pants',
-        'sizes': ['S', 'M', 'L', 'XL'],
-      },
-      {
-        'id': 'silk_scarf',
-        'name': 'Luxury Silk Scarf',
-        'description': 'Made from 100% mulberry silk, this elegant scarf features a unique hand-rolled hem and signature branding.',
-        'price': 45.00,
-        'imageUrl': '',
-        'category': 'Accessories',
-        'sizes': ['One Size'],
-      },
-      {
-        'id': 'mens_tshirt',
-        'name': "Men's Regular Fit T-Shirt",
-        'description': "A classic regular fit t-shirt made of 100% cotton, perfect for everyday casual wear. Features a durable crew neck and premium stitching.",
-        'price': 25.00,
-        'imageUrl': '',
-        'category': 'Men',
-        'sizes': ['S', 'M', 'L', 'XL', 'XXL'],
-      },
-      {
-        'id': 'nike_air_max',
-        'name': 'Nike Air Max',
-        'description': 'Revolutionary Air technology provides lightweight cushioning. Features a mesh and leather upper for durability, comfort, and premium street style.',
-        'price': 129.99,
-        'imageUrl': '',
-        'category': 'Shoes',
-        'sizes': ['8', '9', '10', '11'],
-      },
-      {
-        'id': 'summer_shirt',
-        'name': 'Summer Floral Shirt',
-        'description': 'Stay cool and stylish this summer with this lightweight floral print cotton shirt, featuring a relaxed collar and breathable fabric.',
-        'price': 39.99,
-        'imageUrl': '',
-        'category': 'Men',
-        'sizes': ['S', 'M', 'L', 'XL'],
-      },
-      {
-        'id': 'classic_wool_coat',
-        'name': 'Classic Wool Coat',
-        'description': 'Elegant long wool coat with a modern tailored fit, featuring a soft fabric finish, waist belt, and premium winter comfort.',
-        'price': 129.99,
-        'imageUrl': '',
-        'category': 'Tops',
-        'sizes': ['S', 'M', 'L', 'XL'],
-      },
-    ];
-
-    final batch = _db.batch();
-    for (var prod in defaultProducts) {
-      final docRef = _db.collection('products').doc(prod['id'] as String);
-      batch.set(docRef, prod, SetOptions(merge: true));
-    }
-    await batch.commit();
-
-    // Clean up any legacy or duplicate products not in the default list
+  // Update product image with dynamic image URL
+  // Only accepts Cloudinary URLs for security
+  Future<void> updateProductImage(String productId, String imageUrl) async {
     try {
-      final validIds = defaultProducts.map((prod) => prod['id'] as String).toSet();
-      final productsSnapshot = await _db.collection('products').get();
-      for (var doc in productsSnapshot.docs) {
-        if (!validIds.contains(doc.id)) {
-          debugPrint('Deleting legacy/duplicate product from Firestore: ${doc.id} ("${doc.data()['name']}")');
-          await _db.collection('products').doc(doc.id).delete();
-        }
+      final normalizedUrl = Product.normalizeImageUrl(imageUrl);
+      if (normalizedUrl.isEmpty) {
+        throw Exception('Invalid image URL. Only Cloudinary images are allowed.');
       }
+      await _db.collection('products').doc(productId).update({
+        'imageUrl': normalizedUrl,
+      });
+      debugPrint('Successfully updated product image for $productId');
     } catch (e) {
-      debugPrint('Error cleaning up legacy products: $e');
+      debugPrint('Error updating product image: $e');
+      rethrow;
+    }
+  }
+
+  // Get a specific product by ID
+  Future<Product?> getProductById(String productId) async {
+    try {
+      final doc = await _db.collection('products').doc(productId).get();
+      if (doc.exists) {
+        return Product.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching product: $e');
+      return null;
+    }
+  }
+
+  // Batch update multiple product images
+  Future<void> updateProductImages(Map<String, String> productIdToImageUrl) async {
+    try {
+      final batch = _db.batch();
+      productIdToImageUrl.forEach((productId, imageUrl) {
+        final normalizedUrl = Product.normalizeImageUrl(imageUrl);
+        if (normalizedUrl.isNotEmpty) {
+          batch.update(
+            _db.collection('products').doc(productId),
+            {'imageUrl': normalizedUrl},
+          );
+        }
+      });
+      await batch.commit();
+      debugPrint('Successfully batch updated ${productIdToImageUrl.length} product images');
+    } catch (e) {
+      debugPrint('Error batch updating product images: $e');
+      rethrow;
     }
   }
 }

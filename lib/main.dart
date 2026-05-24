@@ -19,20 +19,6 @@ void main() async {
   // Initialize auth listener
   AuthService.initializeAuthListener();
 
-
-  // Seed default promo codes if needed
-  try {
-    await FirestoreService().seedDefaultPromoCodes();
-  } catch (e) {
-    debugPrint('Error seeding promo codes: $e');
-  }
-
-  // Seed default categories if needed
-  try {
-    await FirestoreService().seedDefaultCategories();
-  } catch (e) {
-    debugPrint('Error seeding categories: $e');
-  }
   runApp(const FashionStoreApp());
 }
 
